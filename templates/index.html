@@ -2,60 +2,34 @@
 <html lang="ar">
 <head>
 <meta charset="UTF-8">
-<title>حلول – مساعدك الذكي</title>
-<link rel="stylesheet" href="/static/style.css">
+<title>Holool AI</title>
+<style>
+body{background:#111;color:#fff;font-family:Arial;padding:30px}
+textarea{width:100%;height:120px;font-size:16px}
+button{padding:10px 20px;margin-top:10px}
+#out{margin-top:20px;white-space:pre-wrap}
+</style>
 </head>
 <body>
 
-<div class="login" id="login">
-  <h2>👋 أهلاً في حلول</h2>
-  <input id="name" placeholder="اكتب اسمك">
-  <button onclick="start()">دخول</button>
-</div>
+<h2>Holool AI</h2>
 
-<div class="chat-container" id="chat" style="display:none;">
-  <div class="chat-header" id="welcome"></div>
+<textarea id="q" placeholder="اكتب سؤالك"></textarea><br>
+<button onclick="send()">إرسال</button>
 
-  <div id="chat-box"></div>
-
-  <div class="chat-input">
-    <input id="msg" placeholder="اكتب مشكلتك هنا...">
-    <button onclick="send()">إرسال</button>
-  </div>
-</div>
+<div id="out"></div>
 
 <script>
-let username = "";
-
-function start() {
-  username = document.getElementById("name").value;
-  if (!username) return;
-
-  document.getElementById("login").style.display = "none";
-  document.getElementById("chat").style.display = "flex";
-  document.getElementById("welcome").innerText =
-    "🤖 أهلاً " + username + "، كيف أقدر أساعدك؟";
-}
-
-function send() {
-  let msg = document.getElementById("msg").value;
-  if (!msg) return;
-
-  let chat = document.getElementById("chat-box");
-  chat.innerHTML += `<div class="user">${msg}</div>`;
-
-  fetch("/ask", {
-    method: "POST",
-    headers: {"Content-Type": "application/json"},
-    body: JSON.stringify({message: msg})
+async function send(){
+  out.innerText="..."
+  const r = await fetch("/ask",{
+    method:"POST",
+    headers:{"Content-Type":"application/json"},
+    body:JSON.stringify({question:q.value})
   })
-  .then(r => r.json())
-  .then(d => {
-    chat.innerHTML += `<div class="bot">${d.reply}</div>`;
-    chat.scrollTop = chat.scrollHeight;
-  });
-
-  document.getElementById("msg").value = "";
+  const d = await r.json()
+  out.innerText=d.answer
+  q.value=""
 }
 </script>
 
