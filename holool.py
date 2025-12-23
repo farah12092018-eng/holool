@@ -1,54 +1,99 @@
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, render_template_string
 from flask_cors import CORS
+from openai import OpenAI
 import os
-import jwt
-from google.oauth2 import id_token
-from google.auth.transport import requests
 
 app = Flask(__name__)
 CORS(app)
 
-app.config["SECRET_KEY"] = os.environ.get("SECRET_KEY", "secret")
+client = OpenAI(
+    api_key=os.getenv("OPENAI_API_KEY")
+)
 
-GOOGLE_CLIENT_ID = os.environ.get("GOOGLE_CLIENT_ID")
+HTML = """
+<!DOCTYPE html>
+<html lang="ar">
+<head>
+<meta charset="UTF-8">
+<title>Holool AI</title>
+<style>
+body {
+    font-family: Arial;
+    background: #0f172a;
+    color: white;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100vh;
+}
+.box {
+    width: 400px;
+}
+textarea {
+    width: 100%;
+    height: 100px;
+    margin-bottom: 10px;
+}
+button {
+    width: 100%;
+    padding: 10px;
+    background: #22c55e;
+    border: none;
+    cursor: pointer;
+}
+pre {
+    white-space: pre-wrap;
+    margin-top: 10px;
+}
+</style>
+</head>
+<body>
+<div class="box">
+<h2>Holool AI</h2>
+<textarea id="q" placeholder="اكتب سؤالك هنا"></textarea>
+<button onclick="send()">إرسال</button>
+<pre id="a"></pre>
+</div>
 
-@app.route("/", methods=["GET"])
+<script>
+function send() {
+    const q = document.getElementById("q");
+    const a = document.getElementById("a");
+    fetch("/ask", {
+        method: "POST",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({question: q.value})
+    })
+    .then(r => r.json())
+    .then(d => {
+        a.textContent = d.answer;
+        q.value = "";
+    });
+}
+</script>
+</body>
+</html>
+"""
+
+@app.route("/")
 def home():
-    return jsonify({"status": "ok", "login": ["google"]})
+    return render_template_string(HTML)
 
-
-@app.route("/login/google", methods=["POST"])
-def login_google():
+@app.route("/ask", methods=["POST"])
+def ask():
     data = request.json
-    token = data.get("id_token")
+    question = data.get("question", "")
 
-    if not token:
-        return jsonify({"error": "no token"}), 400
+    if not question:
+        return jsonify({"answer": "اكتب سؤال أولاً"})
 
-    try:
-        info = id_token.verify_oauth2_token(
-            token,
-            requests.Request(),
-            GOOGLE_CLIENT_ID
-        )
+    response = client.responses.create(
+        model="gpt-4.1-mini",
+        input=question
+    )
 
-        user = {
-            "id": info["sub"],
-            "email": info["email"],
-            "name": info.get("name", "")
-        }
-
-        jwt_token = jwt.encode(
-            user,
-            app.config["SECRET_KEY"],
-            algorithm="HS256"
-        )
-
-        return jsonify({"token": jwt_token, "user": user})
-
-    except Exception as e:
-        return jsonify({"error": "invalid google token"}), 401
-
+    answer = response.output_text
+    return jsonify({"answer": answer})
 
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=10000)
+    app.run()
